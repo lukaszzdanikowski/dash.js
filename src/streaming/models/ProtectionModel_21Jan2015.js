@@ -76,8 +76,10 @@ MediaPlayer.models.ProtectionModel_21Jan2015 = function () {
                     switch (event.type) {
 
                         case "encrypted":
-                            self.notify(MediaPlayer.models.ProtectionModel.eventList.ENAME_NEED_KEY,
-                                new MediaPlayer.vo.protection.NeedKey(event.initData, event.initDataType));
+                            if (event.initData) {
+                                self.notify(MediaPlayer.models.ProtectionModel.eventList.ENAME_NEED_KEY,
+                                        new MediaPlayer.vo.protection.NeedKey(event.initData, event.initDataType));
+                            }
                             break;
                     }
                 }
@@ -174,10 +176,19 @@ MediaPlayer.models.ProtectionModel_21Jan2015 = function () {
         teardown: function() {
             if (videoElement) {
                 videoElement.removeEventListener("encrypted", eventHandler);
+                videoElement.setMediaKeys(null);
             }
             for (var i = 0; i < sessions.length; i++) {
                 this.closeKeySession(sessions[i]);
             }
+        },
+
+        getAllInitData: function() {
+            var retVal = [];
+            for (var i = 0; i < sessions.length; i++) {
+                retVal.push(sessions[i].initData);
+            }
+            return retVal;
         },
 
         requestKeySystemAccess: function(ksConfigurations) {
@@ -203,7 +214,7 @@ MediaPlayer.models.ProtectionModel_21Jan2015 = function () {
 
         setMediaElement: function(mediaElement) {
             if (videoElement) {
-                videoElement.removeEventListener("encrypted", eventHandler().bind(this));
+                videoElement.removeEventListener("encrypted", eventHandler);
             }
             videoElement = mediaElement;
             videoElement.addEventListener("encrypted", eventHandler);
@@ -230,13 +241,6 @@ MediaPlayer.models.ProtectionModel_21Jan2015 = function () {
 
             if (!this.keySystem || !mediaKeys) {
                 throw new Error("Can not create sessions until you have selected a key system");
-            }
-
-            // Check for duplicate initData.
-            for (var i = 0; i < sessions.length; i++) {
-                if (this.protectionExt.initDataEquals(initData, sessions[i].initData)) {
-                    return;
-                }
             }
 
             var session = mediaKeys.createSession(sessionType);
